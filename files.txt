@@ -1,1 +1,2 @@
-main src/main.c src/display.c include/display.h
+server src/server.c src/server_source.c include/server_source.h src/convert.c include/convert.h p101_env p101_error p101_c p101_posix p101_unix p101_fsm p101_convert llvm p101_posix
+client src/client.c src/client_source.c include/client_source.h include/convert.h src/convert.c p101_env p101_error p101_c p101_posix p101_unix p101_fsm p101_convert llvm p101_posix
