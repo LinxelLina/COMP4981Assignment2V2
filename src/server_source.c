@@ -171,6 +171,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
                     status_connections[i] = NO_CONNECTION;
                     if(client_sockets[i] > 0)
                     {
+                        printf("Client thread rejoined %d",client_sockets[i]);
                         socket_close(client_sockets[i]);
                         client_sockets[i] = -1;
                     }
