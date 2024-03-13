@@ -141,6 +141,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
                 if(status_connections[i] == NO_CONNECTION)
                 {
                     int thread_creation;
+                    printf("Creating thread");
                     thread_creation = pthread_create(&client_connections[i], NULL, run_thread, (void *)&clientData);
                     if(thread_creation < 0)
                     {
@@ -171,6 +172,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
                     if(client_sockets[i] > 0)
                     {
                         socket_close(client_sockets[i]);
+                        client_sockets[i] = -1;
                     }
                 }
             }
@@ -291,7 +293,7 @@ static void socket_listen(const struct p101_env *env, struct p101_error *err, vo
     P101_TRACE(env);
     data = (struct server_data *)arg;
     p101_listen(env, err, data->server_socket, SOMAXCONN);
-
+    printf("Server is listening\n");
     if(p101_error_has_error(err))
     {
         cleanup(env, err, arg);
@@ -357,17 +359,16 @@ static void handle_connection(const struct p101_env *env, struct p101_error *err
         uint8_t size    = 0;
         original_stdout = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 0);
         original_stderr = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 0);
-        //        printf("Read 1");
+
         fflush(stdout);
         memset(buffer, '\0', LEN);
-        //        printf("%hhu", size);
+
         if(read(sockfd, &size, sizeof(uint8_t)) == 0)
         {
             printf("Received exit\n");
             goto done;
         }
-        //        printf("%hhu", size);
-        //        printf("Read 1.5");
+
         if(read(sockfd, buffer, (size_t)(size - 1)) == 0)
         {
             printf("received exit 2.0\n");
