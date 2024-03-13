@@ -142,7 +142,7 @@ void run_client(int sockfd)
             printf("\n");
             break;
         }
-        write(STDOUT_FILENO, buffer, LEN);
+        write(STDOUT_FILENO, buffer, LEN - 1);
         exit_flag = 1;
     }
     if(!exit_flag)
