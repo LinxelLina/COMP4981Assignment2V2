@@ -106,7 +106,8 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
         socklen_t               client_addr_len;
         size_t                  size;
         // when accept client, make new thread
-        const char *message = "Cannot take any more connections";
+        const char *message          = "Cannot take any more connections";
+        const char *continue_message = "theresstillspace";
 
         client_addr_len = sizeof(client_addr);
         client_sockfd   = socket_accept_connection(data.server_socket, &client_addr, &client_addr_len);
@@ -155,6 +156,10 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
         }
 
     restart_acceptance:
+        //        size = (uint8_t)strlen(continue_message);
+        //        write(client_sockfd, &size, sizeof(uint8_t));
+        write(client_sockfd, continue_message, strlen(continue_message));
+
         for(size_t i = 0; i < MAX_CLIENT; i++)
         {
             // CHECK global variable to see if thread is done.
@@ -355,13 +360,13 @@ static void handle_connection(const struct p101_env *env, struct p101_error *err
         //        printf("Read 1");
         fflush(stdout);
         memset(buffer, '\0', LEN);
-        printf("%hhu", size);
+        //        printf("%hhu", size);
         if(read(sockfd, &size, sizeof(uint8_t)) == 0)
         {
             printf("Received exit\n");
             goto done;
         }
-        printf("%hhu", size);
+        //        printf("%hhu", size);
         //        printf("Read 1.5");
         if(read(sockfd, buffer, (size_t)(size - 1)) == 0)
         {
@@ -486,9 +491,9 @@ int runCommand(const char *path, char *const *argument)
 
     if(pid == 0)
     {
-        printf("Name: %s, Process: PID=%d, Parent PID=%d\n", "Child", getpid(), getppid());
+        //        printf("Name: %s, Process: PID=%d, Parent PID=%d\n", "Child", getpid(), getppid());
 
-        printf("Executing command:");
+        //        printf("Executing command:");
 
         if(access(path, X_OK) == 0)
         {
@@ -514,9 +519,9 @@ int runCommand(const char *path, char *const *argument)
 
     if(pid != 0)
     {
-        printf("\n\n");
-        printf("Name: %s, Process: PID=%d, Parent PID=%d\n", "Parent", getpid(), getppid());
-        printf("Child executed properly\n");
+        //        printf("\n\n");
+        //        printf("Name: %s, Process: PID=%d, Parent PID=%d\n", "Parent", getpid(), getppid());
+        //        printf("Child executed properly\n");
         return 0;
     }
     printf("Error running parent process\n");
@@ -607,19 +612,6 @@ int executeCommand(char *arg)
     {
         argument[i] = NULL;
     }
-    //    for(i = 0; command != NULL && i < LEN; i++)
-    //    {
-    //        argument[i] = command;
-    //        command     = strtok_r(NULL, " ", &cmdPtr);
-    //    }
-    //    if(i >= LEN)
-    //    {
-    //        argument[LEN - 1] = NULL;
-    //    }
-    //    else
-    //    {
-    //        argument[i] = NULL;
-    //    }
 
     success = runCommand(path, (char *const *)argument);
     if(success == FAIL_VALUE)

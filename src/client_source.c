@@ -126,14 +126,54 @@ void socket_close(int client_fd)
 
 void run_client(int sockfd)
 {
-    printf("Enter something: ");
+    const char *temp;
+    char        buffer[LEN];
+
+    while(read(sockfd, buffer, sizeof(buffer)) > 0)
+    {
+        //        printf("Starting message: %s\n", buffer);
+        temp = strstr(buffer, "theresstillspace");
+
+        if(temp != NULL)
+        {
+            size_t msg;
+            msg = (size_t)(temp - buffer);
+            write(STDOUT_FILENO, buffer, msg);
+            printf("\n");
+            break;
+        }
+        write(STDOUT_FILENO, buffer, LEN);
+        exit_flag = 1;
+    }
+    if(!exit_flag)
+    {
+        printf("\nEnter something:\n");
+    }
     while(!exit_flag)
     {
+        //        const char *temp;
         const char *word;
-        char        buffer[LEN];
-        size_t      word_len;
-        ssize_t     bytes_read;
-        uint8_t     size;
+        //        char        buffer[LEN];
+        size_t  word_len;
+        ssize_t bytes_read;
+        uint8_t size;
+        //
+        //        while(read(sockfd, buffer, sizeof(buffer)) > 0)
+        //        {
+        //            temp = strstr(buffer, "exittheservertheresnospace");
+        //            if(temp != NULL)
+        //            {
+        //                size_t msg = (size_t)(temp - buffer);
+        //                write(STDOUT_FILENO, buffer, msg);
+        //                break;
+        //            }
+        //        }
+
+        //        if(read(sockfd, &size, sizeof(uint8_t)) != 0)
+        //        {
+        //            read(sockfd, buffer, size);
+        //            write(STDOUT_FILENO, buffer, (size_t)size);
+        //        }
 
         // Clean everything before starting
         fflush(stdout);
@@ -146,16 +186,8 @@ void run_client(int sockfd)
             {
                 printf("Found end of file\n");
 
-                //                word     = buffer;
-                //                word_len = strlen(word);
-                //                size     = (uint8_t)word_len;
-                //                write(sockfd, &size, sizeof(uint8_t));
-                //                // Write the word
-                //                write(sockfd, word, word_len);
-                //                // clear out stdin (might be unnecessary)
                 fflush(STDIN_FILENO);
                 goto read;
-                //                exit(1);
             }
             break;
         }
@@ -187,7 +219,6 @@ void run_client(int sockfd)
 
         while((bytes_read = read(sockfd, buffer, sizeof(buffer))) > 0)
         {
-            const char *temp;
             temp = strstr(buffer, "chloroformexitstatus");
             if(temp != NULL)
             {
