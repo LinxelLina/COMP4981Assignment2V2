@@ -31,7 +31,7 @@ int          runCommand(const char *path, char *const *argument);
 char        *doesExist(const char *command);
 int          executeCommand(char *arg);
 
-#define LEN 1024
+#define LEN 2048
 #define MAX_CLIENT 5
 #define NO_CONNECTION (-1)
 #define CONNECTED 1

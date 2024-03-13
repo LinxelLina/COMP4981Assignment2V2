@@ -16,7 +16,7 @@
 
 static void sigint_handler(int signum);
 // static void handle_connection(const struct p101_env *env, struct p101_error *err, void *arg);
-#define LEN 1024
+#define LEN 2048
 static volatile sig_atomic_t exit_flag = 0;    // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 void setup_signal_handler(const struct p101_env *env, struct p101_error *err)
