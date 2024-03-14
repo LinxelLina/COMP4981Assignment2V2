@@ -445,15 +445,6 @@ static void handle_connection(const struct p101_env *env, struct p101_error *err
             goto error;
         }
         write(sockfd, "chloroformexitstatus", 20);    // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-                                                      //        size = (uint8_t)word_len;
-                                                      //        write(STDOUT_FILENO, word, word_len);
-    }
-
-    p101_clock(env, err);
-
-    if(p101_error_has_error(err))
-    {
-        goto error;
     }
 
     goto done;
@@ -473,7 +464,6 @@ static void cleanup(const struct p101_env *env, struct p101_error *err, void *ar
     data = (struct server_data *)arg;
 
     // TODO close client socket too
-    // TODO: is this -1 at the start?
     if(data->server_socket != -1)
     {
         printf("closing %d\n", data->server_socket);
