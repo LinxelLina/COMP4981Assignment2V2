@@ -78,7 +78,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
         client_connections[i] = 0;
         status_connections[i] = NO_CONNECTION;
         thread_status[i]      = 0;
-        client_sockets[i]     = -1;
+        client_sockets[i]     = -2;
     }
 
     p101_setsockopt(env, err, data.server_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
@@ -112,13 +112,16 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
 
         client_addr_len = sizeof(client_addr);
         client_sockfd   = socket_accept_connection(data.server_socket, &client_addr, &client_addr_len);
-        printf("...Client %d Connecting...", client_sockfd);
-        if(client_sockfd <= 0)
+        if(client_sockfd == -1)
         {
-            perror("Failed connection with Client");
+            if(!exit_flag)
+            {
+                perror("Failed connection with Client");
+            }
         }
         else
         {
+            printf("...Client %d Connecting...", client_sockfd);
             clientData.client_sockfd = client_sockfd;
             clientData.env           = env;
             clientData.err           = err;
@@ -177,7 +180,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
                     {
                         printf("Client thread exiting %d\n", client_sockets[i]);
                         socket_close(client_sockets[i]);
-                        client_sockets[i] = -1;
+                        client_sockets[i] = -2;
                     }
                 }
             }
