@@ -119,6 +119,29 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
         }
         else
         {
+            //        size = (uint8_t)strlen(continue_message);
+            //        write(client_sockfd, &size, sizeof(uint8_t));
+            write(client_sockfd, continue_message, strlen(continue_message));
+
+            for(size_t i = 0; i < MAX_CLIENT; i++)
+            {
+                // CHECK global variable to see if thread is done.
+                if(thread_status[i] == DONE)
+                {
+                    if(pthread_join(client_connections[i], NULL) == 0)
+                    {
+                        status_connections[i] = NO_CONNECTION;
+                        thread_status[i]      = 0;
+                        if(client_sockets[i] > 0)
+                        {
+                            printf("Client thread exiting %d\n", client_sockets[i]);
+                            socket_close(client_sockets[i]);
+                            client_sockets[i] = -1;
+                        }
+                    }
+                }
+            }
+
             clientData.client_sockfd = client_sockfd;
             clientData.env           = env;
             clientData.err           = err;
@@ -136,7 +159,6 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
             write(client_sockfd, &size, sizeof(uint8_t));
             write(client_sockfd, message, strlen(message));
             socket_close(client_sockfd);
-            goto restart_acceptance;
 
         process:
             for(size_t i = 0; i < MAX_CLIENT; i++)
