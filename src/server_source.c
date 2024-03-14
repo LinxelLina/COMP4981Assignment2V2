@@ -32,7 +32,7 @@ char        *doesExist(const char *command);
 int          executeCommand(char *arg);
 
 #define LEN 2048
-#define MAX_CLIENT 5
+#define MAX_CLIENT 3
 #define NO_CONNECTION (-1)
 #define CONNECTED 1
 #define DONE (-1)
@@ -62,6 +62,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
 {
     struct server_data data;
     int                enable;
+    struct client_data client_information[MAX_CLIENT];
     pthread_t          client_connections[MAX_CLIENT];
     int                status_connections[MAX_CLIENT];
     int                client_sockets[MAX_CLIENT];
@@ -84,7 +85,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
 
     if(p101_error_has_error(err))
     {
-        goto error;
+        goto close;
     }
 
     socket_bind(env, err, &data);
@@ -93,7 +94,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
 
     if(p101_error_has_error(err))
     {
-        goto error;
+        goto close;
     }
 
     socket_listen(env, err, &data);
@@ -111,6 +112,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
 
         client_addr_len = sizeof(client_addr);
         client_sockfd   = socket_accept_connection(data.server_socket, &client_addr, &client_addr_len);
+        printf("...Client %d Connecting...", client_sockfd);
         if(client_sockfd <= 0)
         {
             perror("Failed connection with Client");
@@ -121,7 +123,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
             clientData.env           = env;
             clientData.err           = err;
             clientData.data          = data;
-            //            clientData.sets = sets;
+
             for(size_t i = 0; i < MAX_CLIENT; i++)
             {
                 if(status_connections[i] != CONNECTED)
@@ -129,6 +131,7 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
                     goto process;
                 }
             }
+            printf("Server is full, disconnecting client socket %d\n", client_sockfd);
             size = (uint8_t)strlen(message);
             write(client_sockfd, &size, sizeof(uint8_t));
             write(client_sockfd, message, strlen(message));
@@ -141,16 +144,18 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
                 if(status_connections[i] == NO_CONNECTION)
                 {
                     int thread_creation;
-                    printf("Creating thread");
-                    thread_creation = pthread_create(&client_connections[i], NULL, run_thread, (void *)&clientData);
+                    printf("Creating thread, Position %zu\n", i);
+                    clientData.status_location = i;
+                    client_information[i]      = clientData;
+                    thread_creation            = pthread_create(&client_connections[i], NULL, run_thread, (void *)&client_information[i]);
                     if(thread_creation < 0)
                     {
-                        perror("Thread creation error has occurred.");
+                        perror("Thread creation error has occurred.\n");
                         goto restart_acceptance;
                     }
-                    client_sockets[i]          = client_sockfd;
-                    status_connections[i]      = CONNECTED;
-                    clientData.status_location = i;
+                    client_sockets[i]     = client_sockfd;
+                    status_connections[i] = CONNECTED;
+
                     break;
                 }
             }
@@ -169,9 +174,10 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
                 if(pthread_join(client_connections[i], NULL) == 0)
                 {
                     status_connections[i] = NO_CONNECTION;
+                    thread_status[i]      = 0;
                     if(client_sockets[i] > 0)
                     {
-                        printf("Client thread rejoined %d",client_sockets[i]);
+                        printf("Client thread exiting %d\n", client_sockets[i]);
                         socket_close(client_sockets[i]);
                         client_sockets[i] = -1;
                     }
@@ -180,10 +186,27 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
         }
     }
 
-    return;
-
-error:
-    return;
+close:
+    for(size_t i = 0; i < MAX_CLIENT; i++)
+    {
+        if(client_sockets[i] != -1)
+        {
+            write(client_sockets[i], "chloroformexitstatus", sizeof("chloroformexitstatus"));
+        }
+        // CHECK global variable to see if thread is done.
+        if(thread_status[i] == DONE)
+        {
+            if(pthread_cancel(client_connections[i]) == 0)
+            {
+                if(client_sockets[i] > 0)
+                {
+                    printf("Client thread rejoined %d\n", client_sockets[i]);
+                    socket_close(client_sockets[i]);
+                    client_sockets[i] = -1;
+                }
+            }
+        }
+    }
 }
 
 static void setup_signal_handler(const struct p101_env *env, struct p101_error *err)
@@ -212,6 +235,7 @@ static void setup_signal_handler(const struct p101_env *env, struct p101_error *
 
 static void sigint_handler(const int signum)
 {
+    printf("\nClosing the server...\n");
     exit_flag = 1;
 }
 
@@ -294,7 +318,7 @@ static void socket_listen(const struct p101_env *env, struct p101_error *err, vo
     P101_TRACE(env);
     data = (struct server_data *)arg;
     p101_listen(env, err, data->server_socket, SOMAXCONN);
-    printf("Server is listening\n");
+    printf("Server is listening....\n");
     if(p101_error_has_error(err))
     {
         cleanup(env, err, arg);
@@ -336,20 +360,19 @@ static void socket_close(int sockfd)
 {
     if(close(sockfd) == -1)
     {
-        perror("Error closing socket");
+        perror("Error closing socket\n");
     }
 }
 
 static void handle_connection(const struct p101_env *env, struct p101_error *err, void *arg, int sockfd)
 {
-    const struct server_data *data;
-    int                       original_stdout;
-    int                       original_stderr;
+    int original_stdout;
+    int original_stderr;
 
     P101_TRACE(env);
     printf("Handing connection\n");
-    data = (struct server_data *)arg;
-    printf("Connected %d", data->server_socket);
+
+    printf("Connected %d\n", sockfd);
 
     while(!exit_flag)
     {
@@ -377,7 +400,6 @@ static void handle_connection(const struct p101_env *env, struct p101_error *err
         }
         read(sockfd, destroy, 1);
         memset(destroy, '\0', LEN);
-        //        printf("Read 2");
         word = buffer;
 
         word_len = strlen(word);
@@ -423,8 +445,8 @@ static void handle_connection(const struct p101_env *env, struct p101_error *err
             goto error;
         }
         write(sockfd, "chloroformexitstatus", 20);    // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        size = (uint8_t)word_len;
-        write(STDOUT_FILENO, word, word_len);
+                                                      //        size = (uint8_t)word_len;
+                                                      //        write(STDOUT_FILENO, word, word_len);
     }
 
     p101_clock(env, err);
@@ -440,7 +462,7 @@ error:
     cleanup(env, err, arg);
 
 done:
-    printf("Connection handled\n");
+    printf("Connection ended.\n");
 }
 
 static void cleanup(const struct p101_env *env, struct p101_error *err, void *arg)
@@ -465,6 +487,7 @@ static void *run_thread(void *arg)
     struct client_data *clientData = (struct client_data *)arg;
     handle_connection(clientData->env, clientData->err, (void *)&clientData->data, clientData->client_sockfd);
     thread_status[clientData->status_location] = DONE;
+    printf("Connection ended with %d\n", clientData->client_sockfd);
     return NULL;
 }
 
@@ -493,10 +516,6 @@ int runCommand(const char *path, char *const *argument)
 
     if(pid == 0)
     {
-        //        printf("Name: %s, Process: PID=%d, Parent PID=%d\n", "Child", getpid(), getppid());
-
-        //        printf("Executing command:");
-
         if(access(path, X_OK) == 0)
         {
             printf("Path is ok");
@@ -521,9 +540,6 @@ int runCommand(const char *path, char *const *argument)
 
     if(pid != 0)
     {
-        //        printf("\n\n");
-        //        printf("Name: %s, Process: PID=%d, Parent PID=%d\n", "Parent", getpid(), getppid());
-        //        printf("Child executed properly\n");
         return 0;
     }
     printf("Error running parent process\n");
