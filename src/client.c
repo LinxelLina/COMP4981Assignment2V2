@@ -41,12 +41,9 @@ int main(int argc, char *argv[])
         goto error;
     }
 
-    socket_connect(sockfd, &sets.ip_address, sets.port);
+    //    socket_connect(sockfd, &sets.ip_address, sets.port);
+    socket_connect(sockfd, &sets);
     run_client(sockfd);
-    //    if(p101_error_has_error(err))
-    //    {
-    //        goto error;
-    //    }
 
     exit_code = EXIT_SUCCESS;
     goto done;

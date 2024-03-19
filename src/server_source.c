@@ -24,12 +24,12 @@ static void  socket_bind(const struct p101_env *env, struct p101_error *err, voi
 static void  socket_listen(const struct p101_env *env, struct p101_error *err, void *arg);
 static int   socket_accept_connection(int server_fd, struct sockaddr_storage *client_addr, socklen_t *client_addr_len);
 static void  socket_close(int sockfd);
-static void  handle_connection(const struct p101_env *env, struct p101_error *err, void *arg, int sockfd);
+static void  handle_connection(const struct p101_env *env, struct p101_error *err, int sockfd);
 static void  cleanup(const struct p101_env *env, struct p101_error *err, void *arg);
 static void *run_thread(void *arg);
 int          runCommand(const char *path, char *const *argument);
 char        *doesExist(const char *command);
-int          executeCommand(char *arg);
+void         executeCommand(char *arg);
 
 #define LEN 2048
 #define MAX_CLIENT 3
@@ -52,16 +52,14 @@ struct client_data
 {
     const struct p101_env *env;
     struct p101_error     *err;
-    //    struct settings *sets;
-    struct server_data data;
-    int                client_sockfd;
-    size_t             status_location;
+    struct server_data     data;
+    int                    client_sockfd;
+    size_t                 status_location;
 };
 
 void run_server(const struct p101_env *env, struct p101_error *err, struct settings *sets)
 {
     struct server_data data;
-    int                enable;
     struct client_data client_information[MAX_CLIENT];
     pthread_t          client_connections[MAX_CLIENT];
     int                status_connections[MAX_CLIENT];
@@ -69,7 +67,6 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
     P101_TRACE(env);
 
     data.sets = sets;
-    enable    = 1;
     socket_create(env, err, &data);
 
     // set all to not connected
@@ -79,13 +76,6 @@ void run_server(const struct p101_env *env, struct p101_error *err, struct setti
         status_connections[i] = NO_CONNECTION;
         thread_status[i]      = 0;
         client_sockets[i]     = -2;
-    }
-
-    p101_setsockopt(env, err, data.server_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
-
-    if(p101_error_has_error(err))
-    {
-        goto close;
     }
 
     socket_bind(env, err, &data);
@@ -342,7 +332,7 @@ static int socket_accept_connection(int server_fd, struct sockaddr_storage *clie
             perror("accept failed");
         }
 
-        return -1;
+        return client_fd;
     }
 
     if(getnameinfo((struct sockaddr *)client_addr, *client_addr_len, client_host, NI_MAXHOST, client_service, NI_MAXSERV, 0) == 0)
@@ -365,13 +355,13 @@ static void socket_close(int sockfd)
     }
 }
 
-static void handle_connection(const struct p101_env *env, struct p101_error *err, void *arg, int sockfd)
+static void handle_connection(const struct p101_env *env, struct p101_error *err, int sockfd)
 {
     int original_stdout;
     int original_stderr;
 
     P101_TRACE(env);
-    printf("Handing connection\n");
+    printf("Handling connection\n");
 
     printf("Connected %d\n", sockfd);
 
@@ -451,7 +441,8 @@ static void handle_connection(const struct p101_env *env, struct p101_error *err
     goto done;
 
 error:
-    cleanup(env, err, arg);
+    //    cleanup(env, err, arg);
+    socket_close(sockfd);
 
 done:
     printf("Connection ended.\n");
@@ -464,19 +455,19 @@ static void cleanup(const struct p101_env *env, struct p101_error *err, void *ar
     P101_TRACE(env);
     data = (struct server_data *)arg;
 
-    // TODO close client socket too
     if(data->server_socket != -1)
     {
         printf("closing %d\n", data->server_socket);
         p101_close(env, err, data->server_socket);
         data->server_socket = -1;
     }
+    // depending on client reading 0 to indicate server closure :)
 }
 
 static void *run_thread(void *arg)
 {
     struct client_data *clientData = (struct client_data *)arg;
-    handle_connection(clientData->env, clientData->err, (void *)&clientData->data, clientData->client_sockfd);
+    handle_connection(clientData->env, clientData->err, clientData->client_sockfd);
     thread_status[clientData->status_location] = DONE;
     printf("Connection ended with %d\n", clientData->client_sockfd);
     return NULL;
@@ -567,7 +558,7 @@ char *doesExist(const char *command)
     return NULL;
 }
 
-int executeCommand(char *arg)
+void executeCommand(char *arg)
 {
     char       *cmdPtr;
     const char *delimiter = " ";
@@ -582,15 +573,14 @@ int executeCommand(char *arg)
     if(command == NULL)
     {    // checks if command has any values
         printf("Command and arguments cannot be empty\n");
-        return FAIL_VALUE;
+        return;
     }
 
     path = doesExist(command);    // grabs path if command is found
 
     if(path == NULL)
     {    // check if path is NULL aka no command
-        free(path);
-        return FAIL_VALUE;
+        goto error_path;
     }
 
     // create array of commands for execv
@@ -600,14 +590,8 @@ int executeCommand(char *arg)
         argument[i] = strdup(command);
         if(argument[i] == NULL)
         {
-            // Handle memory allocation error
-            for(i = 0; argument[i] != NULL; i++)
-            {
-                free(argument[i]);
-            }
-            free(path);
             perror("Memory allocation failed");
-            return FAIL_VALUE;
+            goto error;
         }
         command = strtok_r(NULL, " ", &cmdPtr);
     }
@@ -625,17 +609,15 @@ int executeCommand(char *arg)
     success = runCommand(path, (char *const *)argument);
     if(success == FAIL_VALUE)
     {
-        for(i = 0; argument[i] != NULL; i++)
-        {
-            free(argument[i]);
-        }
-        free(path);
-        return FAIL_VALUE;
+        goto error;
     }
+
+error:
     for(i = 0; argument[i] != NULL; i++)
     {
         free(argument[i]);
     }
+
+error_path:
     free(path);
-    return 0;
 }
