@@ -99,7 +99,7 @@ static void parse_arguments(const struct p101_env *env, int argc, char *argv[], 
         usage(env, argv[0], EXIT_FAILURE, "The port is required");
     }
 
-    if(optind < argc - 3)
+    if(optind < argc - 2)
     {
         usage(env, argv[0], EXIT_FAILURE, "Error: Too many arguments.");
     }
